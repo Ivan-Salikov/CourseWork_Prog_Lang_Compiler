@@ -3,10 +3,104 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:CourseWork_Prog_Lang_Compiler"
+        xmlns:local="clr-namespace:CourseWork_Prog_Lang_Compiler.Views"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Лексический анализатор" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
+        <!-- Меню -->
+        <Menu Grid.Row="0" Grid.ColumnSpan="2">
+            <MenuItem Header="_Файл">
+                <!-- В будущем здесь могут быть команды "Открыть", "Сохранить" и т.д. -->
+            </MenuItem>
+            <!-- Привязка команды анализа -->
+            <MenuItem Header="_Произвести лексический анализ" Command="{Binding AnalyzeCommand}"/>
+        </Menu>
+
+        <!-- Таблицы лексем -->
+        <TabControl Grid.Row="1" Grid.Column="0" Margin="0,5,5,0">
+            <TabItem Header="Таблица служебных слов (1)">
+                <!-- Привязка к коллекции служебных слов -->
+                <DataGrid ItemsSource="{Binding ServiceWords}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
+                        <DataGridTextColumn Header="Слово" Binding="{Binding Value}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Таблица разделителей (2)">
+                <!-- Привязка к коллекции разделителей -->
+                <DataGrid ItemsSource="{Binding Delimiters}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
+                        <DataGridTextColumn Header="Разделитель" Binding="{Binding Value}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Таблица чисел (3)">
+                <!-- Привязка к коллекции чисел -->
+                <DataGrid ItemsSource="{Binding Numbers}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
+                        <DataGridTextColumn Header="Число" Binding="{Binding Value}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Таблица идентификаторов (4)">
+                <!-- Привязка к коллекции идентификаторов -->
+                <DataGrid ItemsSource="{Binding Identifiers}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
+                        <DataGridTextColumn Header="Идентификатор" Binding="{Binding Value}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Исходный код и Результат -->
+        <Grid Grid.Row="1" Grid.Column="1" Margin="5,5,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <GroupBox Header="Исходный код" Grid.Row="0" Margin="0,0,0,5">
+                <!-- Привязка к свойству с исходным кодом -->
+                <TextBox Text="{Binding SourceCodeText, UpdateSourceTrigger=PropertyChanged}" 
+                         TextWrapping="Wrap" 
+                         AcceptsReturn="True" 
+                         VerticalScrollBarVisibility="Auto" 
+                         FontFamily="Consolas"
+                         FontSize="14"/>
+            </GroupBox>
+
+            <GroupBox Header="Результат анализа" Grid.Row="1" Margin="0,5,0,0">
+                <!-- Привязка к свойству с результатом анализа -->
+                <TextBox Text="{Binding AnalysisResultText}" 
+                         TextWrapping="Wrap" 
+                         IsReadOnly="True" 
+                         VerticalScrollBarVisibility="Auto" 
+                         FontFamily="Consolas"
+                         FontSize="14"/>
+            </GroupBox>
+        </Grid>
+
+        <!-- Строка состояния -->
+        <StatusBar Grid.Row="2" Grid.ColumnSpan="2">
+            <StatusBarItem>
+                <!-- Привязка к свойству текста статуса -->
+                <TextBlock Text="{Binding StatusText}"/>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>
