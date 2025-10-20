@@ -14,8 +14,8 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
         </Grid.ColumnDefinitions>
 
         <!-- Меню -->
@@ -86,7 +86,7 @@
 
             <GroupBox Header="Результат анализа" Grid.Row="1" Margin="0,5,0,0">
                 <!-- Привязка к свойству с результатом анализа -->
-                <TextBox Text="{Binding AnalysisResultText}" 
+                <TextBox Text="{Binding AnalysisResultText}"
                          TextWrapping="Wrap" 
                          IsReadOnly="True" 
                          VerticalScrollBarVisibility="Auto" 
