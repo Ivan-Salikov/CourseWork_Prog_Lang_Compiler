@@ -65,7 +65,7 @@
 
 1.  Клонируйте репозиторий:
     ```sh
-    git clone https://github.com/ваш-логин/ваш-репозиторий.git
+    git clone https://github.com/Ivan-Salikov/CourseWork_Prog_Lang_Compiler.git
     ```
 2.  Откройте файл решения `CourseWork_Prog_Lang_Compiler.sln` в Visual Studio.
 3.  Нажмите `F5` для сборки и запуска проекта.
