@@ -25,6 +25,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         private StringBuilder S = new(); // 2) S - буфер для накапливания символов лексемы
         private State CS;                // 3) CS - текущее состояние буфера накопления лексем с возможными значениями
 
+        private string? _customErrorMessage = null; // Поле для хранения специфического сообщения об ошибке.
+
         private string _sourceText = "";
         private int _currentIndex = 0;
         private int _currentLine = 1;
@@ -113,12 +115,23 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Формирование результата анализа
             if (CS == State.ER)
             {
+                // Если было установлено специальное сообщение, используем его
+                if (!string.IsNullOrEmpty(_customErrorMessage))
+                {
+                    return new AnalysisResult
+                    {
+                        IsSuccess = false,
+                        // Добавляем номер строки к нашему кастомному сообщению
+                        ErrorMessage = $"Ошибка на строке {_currentLine}: {_customErrorMessage}"
+                    };
+                }
+
+                // Иначе используем стандартное сообщение
                 string errorLexeme = S.Length > 0 ? S.ToString() : "";
                 return new AnalysisResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Ошибка на строке {_currentLine}:" +
-                    $"Неверная лексема '{errorLexeme}{CH}'."
+                    ErrorMessage = $"Ошибка на строке {_currentLine}: Неверная лексема '{errorLexeme}{CH}'."
                 };
             }
 
@@ -175,11 +188,11 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         {
             if (CH == 'e') { CS = State.CE1; }
             else if (CH == '}') { CS = State.H; }
-            else if (CH == '\0') { CS = State.ER; }
+            else if (CH == '\0') { _customErrorMessage = "Обнаружен конец файла внутри незакрытого комментария."; CS = State.ER; }
         }
         private void HandleStateCE1() { if (CH == 'n') { CS = State.CE2; } else if (CH == '}') { CS = State.H; } else { CS = State.C; } }
         private void HandleStateCE2() { if (CH == 'd') { CS = State.CE3; } else if (CH == '}') { CS = State.H; } else { CS = State.C; } }
-        private void HandleStateCE3() { if (CH == '.') { CS = State.ER; } else if (CH == '}') { CS = State.H; } else { CS = State.C; } }
+        private void HandleStateCE3() { if (CH == '.') { _customErrorMessage = "Обнаружен конец программы 'end.' внутри незакрытого комментария.";  CS = State.ER; } else if (CH == '}') { CS = State.H; } else { CS = State.C; } }
 
         // Обработка операторов сравнения.
         private void HandleStateL1() { if (CH == '=') { add(); @out(2, 11); CS = State.H; } else { ungetc(); @out(2, 8); CS = State.H; } }
@@ -194,7 +207,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             else if (CH is 'B' or 'b') { add(); CS = State.B; }
             else if (CH is 'O' or 'o') { add(); CS = State.O; }
             else if (CH is 'D' or 'd') { add(); CS = State.D; }
-            else if ("ACFHacfHh".Contains(CH)) { add(); CS = State.N16; }
+            else if (CH is 'H' or 'h') { add(); CS = State.HX; }
+            else if (AFH()) { add(); CS = State.N16; }
             else if (CH >= '2' && CH <= '7') { add(); CS = State.N8; }
             else if (CH is '8' or '9') { add(); CS = State.N10; }
             else if (CH == '.') { add(); CS = State.FP; }
@@ -204,11 +218,11 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         private void HandleStateN8()
         {
             while (CH >= '0' && CH <= '7') { add(); gc(); }
-
             if (CH is 'E' or 'e') { add(); CS = State.EXP; }
             else if (CH is 'O' or 'o') { add(); CS = State.O; }
             else if (CH is 'D' or 'd') { add(); CS = State.D; }
-            else if ("ABCFHhabcfHh".Contains(CH)) { add(); CS = State.N16; }
+            else if (CH is 'H' or 'h') { add(); CS = State.HX; }
+            else if (AFH()) { add(); CS = State.N16; }
             else if (CH is '8' or '9') { add(); CS = State.N10; }
             else if (CH == '.') { add(); CS = State.FP; }
             else if (let()) { CS = State.ER; }
@@ -219,7 +233,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             while (digit()) { add(); gc(); }
             if (CH is 'E' or 'e') { add(); CS = State.EXP; }
             else if (CH is 'D' or 'd') { add(); CS = State.D; }
-            else if ("ABCFHhabcfHh".Contains(CH)) { add(); CS = State.N16; }
+            else if (CH is 'H' or 'h') { add(); CS = State.HX; }
+            else if (AFH()) { add(); CS = State.N16; }
             else if (CH == '.') { add(); CS = State.FP; }
             else if (let()) { CS = State.ER; }
             else { ungetc(); decimalPut(); CS = State.H; }
@@ -233,16 +248,15 @@ namespace CourseWork_Prog_Lang_Compiler.Models
 
         private void HandleStateB()
         {
-            // Мы здесь, потому что в буфере что-то вроде "101b". CH - это символ после 'b'.
             if (CH is 'H' or 'h') // Если видим "101bH"
             {
-                add(); // Добавляем 'H'
-                CS = State.HX; // Это точно шестнадцатеричное число
+                add();
+                CS = State.HX;
             }
             else // Если после 'b' идет любой другой символ (пробел, ';', и т.д.)
             {
-                ungetc(); // Возвращаем этот символ обратно
-                translate(2); // Считаем, что это было двоичное число ("101b")
+                ungetc();
+                translate(2);
                 CS = State.H;
             }
         }
@@ -262,11 +276,10 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         }
         private void HandleStateD()
         {
-            // Мы здесь, потому что в буфере "199d" или "34d". CH - символ ПОСЛЕ 'd'.
             if (CH is 'H' or 'h') // Если видим "34dh"
             {
-                add(); // Добавляем 'H'
-                CS = State.HX; // Это шестнадцатеричное число
+                add();
+                CS = State.HX;
             }
             else // Если после 'd' идет любой другой символ
             {
@@ -275,7 +288,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 {
                     S.Length--; // Удаляем суффикс 'd'
                 }
-                decimalPut(); // Считаем десятичным
+                decimalPut();
                 CS = State.H;
             }
         }
@@ -290,7 +303,33 @@ namespace CourseWork_Prog_Lang_Compiler.Models
 
         private void HandleStateP() { if (digit()) { add(); CS = State.FP; } else { ungetc(); S.Clear(); S.Append("."); int z = look(_delimiters); @out(2, z); CS = State.H; } }
         private void HandleStateFP() { while (digit()) { add(); gc(); } if (CH is 'E' or 'e') { add(); CS = State.ES2; } else if (let()) { CS = State.ER; } else { ungetc(); convert(); CS = State.H; } }
-        private void HandleStateEXP() { if (digit()) { add(); CS = State.ED1; } else if (CH is '+' or '-') { add(); CS = State.ES1; } else { CS = State.ER; } }
+        private void HandleStateEXP()
+        {
+            if (digit())
+            {
+                add();
+                CS = State.ED1;
+            }
+            else if (CH is '+' or '-')
+            {
+                add();
+                CS = State.ES1;
+            }
+            else if (CH is 'H' or 'h') // Случай типа "12Eh"
+            {
+                add();
+                CS = State.HX;
+            }
+            else if (check_hex()) // Случай типа "12EFh" (где F - следующий символ)
+            {
+                add(); // Добавляем 'F'
+                CS = State.N16;
+            }
+            else
+            {
+                CS = State.ER;
+            }
+        }
         private void HandleStateES1() { if (digit()) { add(); CS = State.ED2; } else { CS = State.ER; } }
         private void HandleStateES2() { if (digit()) { add(); CS = State.ED3; } else if (CH is '+' or '-') { add(); CS = State.ES1; } else if (let() || CH == '.') { CS = State.ER; } else { CS = State.ER; } }
         private void HandleStateED1() { while (digit()) { add(); gc(); } if (invLet()) { CS = State.ER; } else { ungetc(); convert(); CS = State.H; } }
@@ -317,8 +356,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
 
         #region Helper Functions
         // 1) gc – процедура считывания очередного символа
-        private void gc()
-        { if (_currentIndex < _sourceText.Length) { CH = _sourceText[_currentIndex++]; if (CH == '\n') { _currentLine++; } } else { CH = '\0'; } }
+        private void gc() { if (_currentIndex < _sourceText.Length) { CH = _sourceText[_currentIndex++]; if (CH == '\n') { _currentLine++; } } else { CH = '\0'; } }
         // ungetc – процедура возврата символа в поток для повторного чтения
         private void ungetc() => _currentIndex--;
         // 2) let – логическая функция, проверяющая, является ли СН буквой
@@ -345,8 +383,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         private void @out(int tableCode, int entryIndex) { _tokens.Add(new Token(tableCode, entryIndex)); }
         // 9) check_hex – логическая функция, проверяющая на шестнадцатеричную цифру
         private bool check_hex() => "0123456789ABCDEFabcdef".Contains(CH);
-        // 10) AFH – логическая функция, проверяющая на A..F или h
-        private bool AFH() => "ABCDEFabcdefHh".Contains(CH);
+        // 10) AFH – логическая функция, проверяющая на A..F
+        private bool AFH() => "ABCDEFabcdef".Contains(CH);
         // invLet – проверяет, является ли символ недопустимой буквой после числа(например, '123G').
         private bool invLet() => char.IsLetter(CH) && !"BbOoDdHhEe".Contains(CH);
         // 11) translate(base) – процедура перевода числа из системы счисления
@@ -404,6 +442,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             S.Clear(); _tokens.Clear();
             _identifiers.Clear(); _numbers.Clear();
             _identifierList.Clear(); _numberList.Clear();
+            _customErrorMessage = null;
         }
         #endregion
     }
