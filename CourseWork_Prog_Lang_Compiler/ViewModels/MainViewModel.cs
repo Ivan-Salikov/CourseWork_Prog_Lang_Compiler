@@ -1,190 +1,163 @@
 ﻿using CourseWork_Prog_Lang_Compiler.Models;
+using Microsoft.Win32;
+using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
 using System.Text;
+using System.Windows;
 using System.Windows.Input;
 
 namespace CourseWork_Prog_Lang_Compiler.ViewModels
 {
     /// <summary>
-    /// ViewModel для главного окна приложения.
-    /// Управляет состоянием UI, обрабатывает команды пользователя и связывает View с Model (LexicalAnalyzer).
+    /// Главная ViewModel для всего приложения.
+    /// Управляет состоянием UI, командами файлов и полного анализа.
+    /// Содержит дочерние ViewModel для лексического и синтаксического анализаторов.
     /// </summary>
-    internal class MainViewModel : ViewModelBase
+    public class MainViewModel : ViewModelBase
     {
-        /// <summary>
-        /// Экземпляр лексического анализатора, который выполняет всю основную логику.
-        /// </summary>
-        private readonly LexicalAnalyzer _analyzer;
+        // Дочерние ViewModel
+        public LexicalAnalyzerViewModel LexicalAnalyzer { get; }
+        public SyntaxAnalyzerViewModel SyntaxAnalyzer { get; }
 
-        // Приватные поля для хранения значений, к которым привязаны свойства.
-        private string _sourceCodeText = "";
-        private string _analysisResultText = "";
-        private string _statusText = "Готово";
+        // Команды
+        public ICommand OpenFileCommand { get; }
+        public ICommand SaveFileCommand { get; }
+        public ICommand RunFullAnalysisCommand { get; }
 
-        #region Public Properties for Data Binding
+        // Приватные поля
+        private string _statusText = "Готов";
+        private string _filePath = "";
 
-        /// <summary>
-        /// Получает или задает исходный код программы, введенный пользователем.
-        /// </summary>
-        public string SourceCodeText
-        {
-            get => _sourceCodeText;
-            set
-            {
-                _sourceCodeText = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Получает или задает текстовое представление результата анализа (список токенов или сообщение об ошибке).
-        /// </summary>
-        public string AnalysisResultText
-        {
-            get => _analysisResultText;
-            set
-            {
-                _analysisResultText = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Получает или задает текст для строки состояния.
-        /// </summary>
-        public string StatusText
-        {
-            get => _statusText;
-            set
-            {
-                _statusText = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>
-        /// Коллекция для отображения таблицы служебных слов.
-        /// </summary>
-        public ObservableCollection<TableEntry> ServiceWords { get; } = new();
-        /// <summary>
-        /// Коллекция для отображения таблицы разделителей.
-        /// </summary>
-        public ObservableCollection<TableEntry> Delimiters { get; } = new();
-        /// <summary>
-        /// Коллекция для отображения таблицы чисел, сформированной в ходе анализа.
-        /// </summary>
-        public ObservableCollection<TableEntry> Numbers { get; } = new();
-        /// <summary>
-        /// Коллекция для отображения таблицы идентификаторов, сформированной в ходе анализа.
-        /// </summary>
-        public ObservableCollection<TableEntry> Identifiers { get; } = new();
-
-        /// <summary>
-        /// Команда, привязанная к кнопке "Произвести лексический анализ".
-        /// </summary>
-        public ICommand AnalyzeCommand { get; }
-
-        #endregion
-
-        /// <summary>
-        /// Инициализирует новый экземпляр класса MainViewModel.
-        /// </summary>
         public MainViewModel()
         {
-            _analyzer = new LexicalAnalyzer();
-            AnalyzeCommand = new RelayCommand(ExecuteAnalyze, CanExecuteAnalyze);
+            LexicalAnalyzer = new LexicalAnalyzerViewModel();
+            SyntaxAnalyzer = new SyntaxAnalyzerViewModel();
 
-            LoadInitialData();
+            // Подписываемся на событие успешного лексического анализа
+            // для передачи токенов и таблиц в синтаксический анализатор
+            LexicalAnalyzer.AnalysisCompleted += OnLexicalAnalysisCompleted;
+
+            OpenFileCommand = new RelayCommand(OpenFile, CanOpenFile);
+            SaveFileCommand = new RelayCommand(SaveFile, CanSaveFile);
+            RunFullAnalysisCommand = new RelayCommand(RunFullAnalysis, CanRunFullAnalysis);
+
             LoadSampleCode();
         }
 
-        /// <summary>
-        /// Определяет, может ли быть выполнена команда анализа.
-        /// </summary>
-        private bool CanExecuteAnalyze(object? parameter)
+        public string StatusText
         {
-            return !string.IsNullOrWhiteSpace(SourceCodeText);
+            get => _statusText;
+            set { _statusText = value; OnPropertyChanged(); }
         }
 
-        /// <summary>
-        /// Выполняет лексический анализ при вызове команды.
-        /// </summary>
-        private void ExecuteAnalyze(object? parameter)
+        // Обработчик события из LexicalAnalyzer
+        private void OnLexicalAnalysisCompleted(object sender, (List<Token> tokens, List<TableEntry> identifiers, List<TableEntry> numbers) data)
         {
-            StatusText = "Анализ запущен...";
+            // Передаем токены и таблицы в SyntaxAnalyzerViewModel
+            SyntaxAnalyzer.SetInputTokensAndTables(data.tokens, data.identifiers, data.numbers);
+        }
 
-            // Очистка результатов предыдущего анализа
-            AnalysisResultText = "";
-            Numbers.Clear();
-            Identifiers.Clear();
-
-            // Запуск анализатора
-            AnalysisResult result = _analyzer.Analyze(SourceCodeText);
-
-            // Отображение результатов в UI
-            if (result.IsSuccess)
+        // Команда: Открыть файл
+        private bool CanOpenFile(object parameter) => true;
+        private void OpenFile(object parameter)
+        {
+            var openFileDialog = new OpenFileDialog
             {
-                StringBuilder resultBuilder = new StringBuilder();
-                const int tokensPerLine = 8;
-                int currentTokenCount = 0;
+                Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*"
+            };
 
-                foreach (var token in result.Tokens)
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
                 {
-                    resultBuilder.Append($"({token.TableCode},{token.EntryIndex}) ");
-                    currentTokenCount++;
-
-                    if (currentTokenCount >= tokensPerLine)
-                    {
-                        resultBuilder.AppendLine();
-                        currentTokenCount = 0;
-                    }
+                    _filePath = openFileDialog.FileName;
+                    LexicalAnalyzer.SourceCodeText = File.ReadAllText(_filePath, Encoding.UTF8);
+                    StatusText = $"Файл открыт: {Path.GetFileName(_filePath)}";
                 }
-                AnalysisResultText = resultBuilder.ToString();
-
-                // Заполняем таблицы чисел и идентификаторов
-                foreach (var entry in result.NumbersTable)
+                catch (Exception ex)
                 {
-                    Numbers.Add(entry);
+                    MessageBox.Show($"Ошибка при открытии файла: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    StatusText = "Ошибка при открытии файла.";
                 }
-                foreach (var entry in result.IdentifiersTable)
-                {
-                    Identifiers.Add(entry);
-                }
+            }
+        }
 
-                StatusText = "Лексический анализ успешно завершен";
+        // Команда: Сохранить файл
+        private bool CanSaveFile(object parameter) => !string.IsNullOrWhiteSpace(LexicalAnalyzer?.SourceCodeText);
+        private void SaveFile(object parameter)
+        {
+            if (string.IsNullOrEmpty(_filePath))
+            {
+                var saveFileDialog = new SaveFileDialog
+                {
+                    Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*"
+                };
+
+                if (saveFileDialog.ShowDialog() == true)
+                {
+                    _filePath = saveFileDialog.FileName;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            try
+            {
+                File.WriteAllText(_filePath, LexicalAnalyzer.SourceCodeText, Encoding.UTF8);
+                StatusText = $"Файл сохранен: {Path.GetFileName(_filePath)}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при сохранении файла: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusText = "Ошибка при сохранении файла.";
+            }
+        }
+
+        // Команда: Полный анализ (лексический -> синтаксический)
+        private bool CanRunFullAnalysis(object parameter) => !string.IsNullOrWhiteSpace(LexicalAnalyzer?.SourceCodeText);
+        private void RunFullAnalysis(object parameter)
+        {
+            StatusText = "Полный анализ запущен...";
+
+            // Очищаем результаты предыдущего анализа
+            LexicalAnalyzer.AnalysisResultText = "";
+            LexicalAnalyzer.Numbers.Clear();
+            LexicalAnalyzer.Identifiers.Clear();
+            SyntaxAnalyzer.SyntaxAnalysisResultText = "";
+            SyntaxAnalyzer.SyntaxErrors.Clear();
+            SyntaxAnalyzer.SyntaxStatusText = "Готов";
+
+            // Запускаем лексический анализ через команду
+            if (LexicalAnalyzer.AnalyzeCommand.CanExecute(null))
+            {
+                LexicalAnalyzer.AnalyzeCommand.Execute(null);
             }
             else
             {
-                AnalysisResultText = result.ErrorMessage;
-                StatusText = "Ошибка лексического анализа";
+                StatusText = "Невозможно запустить лексический анализ (проверьте исходный код).";
+                return; // Прерываем выполнение полного анализа
             }
+
+            // Лексический анализ завершён (или не удался), событие AnalysisCompleted
+            // (если анализ был успешен) вызвало передачу токенов и таблиц в SyntaxAnalyzer.
+            // Теперь запускаем синтаксический анализ через его команду.
+            if (SyntaxAnalyzer.AnalyzeSyntaxCommand.CanExecute(null))
+            {
+                SyntaxAnalyzer.AnalyzeSyntaxCommand.Execute(null);
+            }
+            else
+            {
+                StatusText = "Невозможно запустить синтаксический анализ (проверьте токены).";
+            }
+
+            StatusText = "Полный анализ завершён.";
         }
 
-        /// <summary>
-        /// Загружает статические данные (служебные слова, разделители) при запуске.
-        /// </summary>
-        private void LoadInitialData()
-        {
-            var serviceWords = new[] { "program", "var", "begin", "end","int", "float",
-                "bool", "if", "else", "while", "for", "to",
-                "step", "next", "true", "false", "readln", "writeln" };
-            for (int i = 0; i < serviceWords.Length; i++)
-            {
-                ServiceWords.Add(new TableEntry(i + 1, serviceWords[i]));
-            }
-
-            var delimiters = new[] { ";", ",", ":", ":=", "!", "!=", "==",
-                "<", ">", "<=", ">=", "+", "-", "||",
-                "*", "&&", "/", "(", ")", "{", "}", "." };
-            for (int i = 0; i < delimiters.Length; i++)
-            {
-                Delimiters.Add(new TableEntry(i + 1, delimiters[i]));
-            }
-        }
-
-        /// <summary>
-        /// Загружает пример кода в текстовое поле для удобства демонстрации и отладки.
-        /// </summary>
+        // Пример загрузки образца кода
         private void LoadSampleCode()
         {
             StringBuilder sb = new StringBuilder();
@@ -200,7 +173,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
             sb.AppendLine("  writeln n, factorial;	{ \"Factorial of \", n, \" is \", factorial }");
             sb.AppendLine("end.");
 
-            SourceCodeText = sb.ToString();
+            LexicalAnalyzer.SourceCodeText = sb.ToString();
         }
     }
 }

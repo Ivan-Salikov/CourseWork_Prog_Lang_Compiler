@@ -1,5 +1,4 @@
-﻿using CourseWork_Prog_Lang_Compiler.ViewModels;
-using System.Windows;
+﻿using System.Windows;
 
 namespace CourseWork_Prog_Lang_Compiler.Views
 {
@@ -8,8 +7,12 @@ namespace CourseWork_Prog_Lang_Compiler.Views
         public MainWindow()
         {
             InitializeComponent();
-            // Устанавливаем DataContext для окна
-            DataContext = new MainViewModel();
+            // DataContext устанавливается через XAML
+        }
+
+        private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown();
         }
     }
 }

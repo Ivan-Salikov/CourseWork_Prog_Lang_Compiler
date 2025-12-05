@@ -8,7 +8,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
     /// Этот интерфейс необходим для автоматического обновления пользовательского интерфейса (View)
     /// при изменении значения свойства в ViewModel.
     /// </summary>
-    internal class ViewModelBase : INotifyPropertyChanged
+    public class ViewModelBase : INotifyPropertyChanged
     {
         /// <summary>
         /// Событие, которое возникает при изменении значения свойства.
