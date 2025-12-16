@@ -16,29 +16,11 @@ namespace CourseWork_Prog_Lang_Compiler.Models
     }
 
     /// <summary>
-    /// Представляет комплексный результат работы синтаксического анализатора.
-    /// Содержит информацию об успехе анализа и список синтаксических ошибок.
-    /// </summary>
-    public class SyntaxAnalysisResult
-    {
-        /// <summary>
-        /// Получает или задает значение, указывающее, успешно ли завершился синтаксический анализ.
-        /// `true` - если анализ прошел без синтаксических ошибок, иначе `false`.
-        /// </summary>
-        public bool IsSuccess { get; set; }
-
-        /// <summary>
-        /// Получает или задает список синтаксических ошибок, обнаруженных в ходе анализа.
-        /// Заполняется в случае наличия ошибок.
-        /// </summary>
-        public List<SyntaxError> Errors { get; set; } = new();
-    }
-
-    /// <summary>
     /// Синтаксический анализатор, реализующий метод рекурсивного спуска.
     /// Принимает на вход последовательность токенов, сгенерированных лексическим анализатором,
     /// и проверяет синтаксическую корректность программы в соответствии с грамматикой языка М.
-    /// Останавливается после обнаружения первой ошибки.
+    /// Также выполняет семантическую проверку.
+    /// Останавливается после обнаружения первой ошибки (синтаксической или семантической).
     /// </summary>
     public class SyntaxAnalyzer
     {
@@ -51,6 +33,9 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         private readonly List<string> _delimiters;
         private List<string> _identifiers;
         private List<string> _numbers;
+
+        // Семантический анализатор
+        private SemanticAnalyzer _semanticAnalyzer;
 
         public SyntaxAnalyzer()
         {
@@ -70,6 +55,9 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Загружаем таблицы идентификаторов и чисел
             _identifiers = identifiers.OrderBy(e => e.Id).Select(e => e.Value).ToList();
             _numbers = numbers.OrderBy(e => e.Id).Select(e => e.Value).ToList();
+
+            // Создаем семантический анализатор с таблицами из лексического анализатора
+            _semanticAnalyzer = new SemanticAnalyzer(identifiers, numbers);
 
             // Устанавливаем начальную лексему, если список не пуст
             if (_tokens.Count > 0)
@@ -92,11 +80,33 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             catch (SyntaxAnalysisException ex)
             {
                 errors.Add(new SyntaxError { Id = errorIdCounter++, Description = ex.Message });
-                return new SyntaxAnalysisResult { IsSuccess = false, Errors = errors };
+                // При синтаксической ошибке семантический результат не важен, возвращаем пустой
+                var finalSemanticResultFromSA = new SemanticAnalysisResult { IsSuccess = false, Errors = new List<SemanticError>() };
+                return new SyntaxAnalysisResult { IsSuccess = false, Errors = errors, SemanticErrors = finalSemanticResultFromSA.Errors };
+            }
+            catch (SemanticAnalysisException ex)
+            {
+                // Ошибка семантики поймана, забираем список ошибок из анализатора
+                var finalSemanticResultFromSA = new SemanticAnalysisResult { IsSuccess = false, Errors = _semanticAnalyzer.GetErrorsCopy() };
+                return new SyntaxAnalysisResult { IsSuccess = false, Errors = errors, SemanticErrors = finalSemanticResultFromSA.Errors };
             }
 
-            // Если исключение не было выброшено, анализ успешен
-            return new SyntaxAnalysisResult { IsSuccess = true, Errors = errors };
+            // Финальная проверка семантического стека
+            try
+            {
+                _semanticAnalyzer.FinalizeAnalysis();
+            }
+            catch (SemanticAnalysisException)
+            {
+                var finalSemanticResultFromSA = new SemanticAnalysisResult { IsSuccess = false, Errors = _semanticAnalyzer.GetErrorsCopy() };
+                return new SyntaxAnalysisResult { IsSuccess = false, Errors = errors, SemanticErrors = finalSemanticResultFromSA.Errors };
+            }
+
+            // Если исключение не было выброшено, анализ (синтаксический и семантический) завершён
+            bool finalSyntaxSuccess = errors.Count == 0 && _currentIndex >= _tokens.Count;
+            var finalSemanticResult = _semanticAnalyzer.GetErrorsCopy();
+
+            return new SyntaxAnalysisResult { IsSuccess = finalSyntaxSuccess && finalSemanticResult.Count == 0, Errors = errors, SemanticErrors = finalSemanticResult };
         }
 
         // --- Внутренние методы анализатора ---
@@ -176,11 +186,11 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                     if (len1 > len2)
                     {
                         i++; // Пропускаем символ в word1 (удаление из word2)
-                    }
+                }
                     else if (len1 < len2)
                     {
                         j++; // Пропускаем символ в word2 (вставка в word2)
-                    }
+            }
                     else // len1 == len2, значит замена
                     {
                         i++;
@@ -209,8 +219,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 if (IsWordClose(expected, foundWord))
                 {
                     return expected;
-                }
             }
+        }
             return null; // Не найдено близкое
         }
 
@@ -238,7 +248,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 {
                     // Ключевое слово не близко к ожидаемому
                     message = $"Ожидается одно из ключевых слов ({string.Join(", ", expectedKeywords)}), но обнаружено ключевое слово '{foundWordValue}' на токене №{_currentIndex + 1}.";
-                }
+            }
             }
             else
             {
@@ -322,7 +332,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             if (EQ(1, 4)) // 'end' (1,4)
             {
                 gl();
-            }
+        }
             else
             {
                 ERRWithExpectedKeywords(new List<string> { _serviceWords[3] });
@@ -370,11 +380,14 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         // Declaration → Type IdentifierList ;
         private void Declaration()
         {
+            string declaredType = TokenToString(_currentToken);
             Type();
+            _semanticAnalyzer.StartDescription();
 
             // Обработка первого идентификатора
             if (ID())
             {
+                _semanticAnalyzer.AddIdentifierToDescription(_currentToken, declaredType, _currentIndex);
                 gl();
             }
             else
@@ -390,6 +403,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                     gl();
                     if (ID())
                     {
+                        _semanticAnalyzer.AddIdentifierToDescription(_currentToken, declaredType, _currentIndex);
                         gl();
                     }
                     else
@@ -407,6 +421,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 }
             }
 
+            _semanticAnalyzer.FinishDescription(declaredType);
+
             if (EQ(2, 1)) // ';'
             {
                 gl();
@@ -423,7 +439,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             if (EQ(1, 5) || EQ(1, 6) || EQ(1, 7)) // 'int' (1,5), 'float' (1,6), 'bool' (1,7)
             {
                 gl();
-            }
+        }
             else
             {
                 ERRWithExpectedKeywords(new List<string> { _serviceWords[4], _serviceWords[5], _serviceWords[6] });
@@ -475,11 +491,11 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                                 if (IsWordClose(currentIdentifierValue, expectedKeyword))
                                 {
                                     throw new SyntaxAnalysisException($"Возможно, имелось в виду ключевое слово '{expectedKeyword}', но найдено идентификатор '{currentIdentifierValue}' на токене №{_currentIndex + 1}.");
-                                }
                             }
-                            ERRWithExpectedKeywords(new List<string> { _serviceWords[2], _serviceWords[7], _serviceWords[10], _serviceWords[11], _serviceWords[16], _serviceWords[17], _serviceWords[3] }); // begin, if, for, while, readln, writeln, end
                         }
+                            ERRWithExpectedKeywords(new List<string> { _serviceWords[2], _serviceWords[7], _serviceWords[10], _serviceWords[11], _serviceWords[16], _serviceWords[17], _serviceWords[3] }); // begin, if, for, while, readln, writeln, end
                     }
+                }
                 }
                 else // Не ';'
                 {
@@ -496,7 +512,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                             if (IsWordClose(currentIdentifierValue, expectedKeyword))
                             {
                                 throw new SyntaxAnalysisException($"Возможно, имелось в виду ключевое слово '{expectedKeyword}', но найдено идентификатор '{currentIdentifierValue}' на токене №{_currentIndex + 1}.");
-                            }
+                        }
                         }
                         ERRWithExpectedKeywords(new List<string> { _serviceWords[4] });
                     }
@@ -568,6 +584,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         // AssignmentStatement → Identifier := Expression
         private void AssignmentStatement()
         {
+            Token identifierToken = _currentToken;
+            int identifierTokenPosition = _currentIndex;
             if (ID())
             {
                 gl();
@@ -587,6 +605,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             }
 
             Expression();
+
+            _semanticAnalyzer.CheckAssignment(identifierToken, identifierTokenPosition);
         }
 
         // ForStatement → for AssignmentStatement to Expression step Expression Statement next | for AssignmentStatement to Expression Statement next
@@ -613,6 +633,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             }
 
             Expression(); // Условие окончания
+            _semanticAnalyzer.CheckAndConsumeType("int", _currentIndex);
 
             // Проверка, не является ли следующий токен опечаткой 'step'
             if (ID())
@@ -629,6 +650,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             {
                 gl();
                 Expression(); // Шаг
+                _semanticAnalyzer.CheckAndConsumeType("int", _currentIndex);
             }
 
             Statement(); // Тело цикла
@@ -665,11 +687,12 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             }
 
             Expression(); // Условие
+            _semanticAnalyzer.CheckCondition(_currentIndex);
 
             if (EQ(2, 19)) // ')' (2,19)
             {
                 gl();
-            }
+        }
             else
             {
                 ERR("')' (2,19)");
@@ -693,6 +716,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Обработка списка идентификаторов для ввода
             if (ID())
             {
+                _semanticAnalyzer.ProcessReadStatement(_currentToken, _currentIndex);
                 gl();
             }
             else
@@ -708,17 +732,18 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                     gl();
                     if (ID())
                     {
+                        _semanticAnalyzer.ProcessReadStatement(_currentToken, _currentIndex);
                         gl();
                     }
                     else
                     {
                         ERR("идентификатор (TI, x)"); // После запятой ожидается идентификатор
-                    }
                 }
+            }
                 else if (ID())
                 {
                     ERR("',' (2,2)"); // Ожидается запятая перед следующим идентификатором
-                }
+        }
                 else
                 {
                     break;
@@ -740,6 +765,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
 
             // Обработка списка выражений для вывода
             Expression();
+            _semanticAnalyzer.ProcessWriteStatement(_currentIndex);
 
             // Цикл для последующих выражений
             while (true)
@@ -748,6 +774,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 {
                     gl();
                     Expression();
+                    _semanticAnalyzer.ProcessWriteStatement(_currentIndex);
                 }
                 else if ( // Проверка, является ли следующий токен началом нового выражения без запятой
                     ID() || NUM() || BOOL_CONST() || EQ(2, 5) || EQ(2, 18)
@@ -755,6 +782,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
                 {
                     ERR("',' (2,2)"); // Ожидается запятая перед следующим выражением
                     Expression();
+                    _semanticAnalyzer.ProcessWriteStatement(_currentIndex);
                 }
                 else
                 {
@@ -785,6 +813,7 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             }
 
             Expression(); // Условие
+            _semanticAnalyzer.CheckCondition(_currentIndex);
 
             if (EQ(2, 19)) // ')' (2,19)
             {
@@ -836,8 +865,12 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Повторяем, пока после Operand идет RelationalOperator
             while (EQ(2, 6) || EQ(2, 7) || EQ(2, 8) || EQ(2, 9) || EQ(2, 10) || EQ(2, 11)) // !=, ==, <, >, <=, >=
             {
+                Token opToken = _currentToken;
+                int opTokenPosition = _currentIndex;
                 gl();
-                Operand();
+                Operand(); // Сначала разбираем второй операнд
+                // Теперь вызываем проверку (в стеке 2 типа)
+                _semanticAnalyzer.ProcessBinaryOperation(opToken, opTokenPosition);
             }
         }
 
@@ -849,8 +882,12 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Повторяем, пока после Term идет AdditiveOperator
             while (EQ(2, 12) || EQ(2, 13) || EQ(2, 14)) // +, -, ||
             {
+                Token opToken = _currentToken;
+                int opTokenPosition = _currentIndex;
                 gl();
-                Term();
+                Term(); // Сначала разбираем второй операнд
+                // Теперь вызываем проверку (в стеке 2 типа)
+                _semanticAnalyzer.ProcessBinaryOperation(opToken, opTokenPosition);
             }
         }
 
@@ -862,22 +899,41 @@ namespace CourseWork_Prog_Lang_Compiler.Models
             // Повторяем, пока после Factor идет MultiplicativeOperator
             while (EQ(2, 15) || EQ(2, 17) || EQ(2, 16)) // *, /, &&
             {
+                Token opToken = _currentToken;
+                int opTokenPosition = _currentIndex;
                 gl();
-                Factor();
+                Factor(); // Сначала разбираем второй операнд
+                // Теперь вызываем проверку (в стеке 2 типа)
+                _semanticAnalyzer.ProcessBinaryOperation(opToken, opTokenPosition);
             }
         }
 
         // Factor → Identifier | Number | BooleanConstant | ! Factor | ( Expression )
         private void Factor()
         {
-            if (ID() || NUM() || BOOL_CONST())
+            if (ID())
             {
+                string type;
+                _semanticAnalyzer.ProcessIdentifier(_currentToken, out type, _currentIndex);
+                gl();
+            }
+            else if (NUM())
+            {
+                _semanticAnalyzer.ProcessConstant(_currentToken, _currentIndex);
+                gl();
+            }
+            else if (BOOL_CONST())
+            {
+                _semanticAnalyzer.ProcessConstant(_currentToken, _currentIndex);
                 gl();
             }
             else if (EQ(2, 5)) // '!' (2,5)
             {
+                Token opToken = _currentToken;
+                int opTokenPosition = _currentIndex;
                 gl();
                 Factor();
+                _semanticAnalyzer.ProcessUnaryOperation(opToken, opTokenPosition);
             }
             else if (EQ(2, 18)) // '(' (2,18)
             {

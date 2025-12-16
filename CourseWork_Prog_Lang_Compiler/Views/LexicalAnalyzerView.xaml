@@ -21,7 +21,11 @@
         <TabControl Grid.Row="1" Grid.Column="0" Margin="0,5,5,0">
             <TabItem Header="Таблица служебных слов (1)">
                 <!-- Привязка к коллекции служебных слов -->
-                <DataGrid ItemsSource="{Binding ServiceWords}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid ItemsSource="{Binding ServiceWords}" 
+                          AutoGenerateColumns="False" 
+                          IsReadOnly="True" 
+                          CanUserAddRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Visible">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
                         <DataGridTextColumn Header="Слово" Binding="{Binding Value}" Width="*"/>
@@ -30,7 +34,11 @@
             </TabItem>
             <TabItem Header="Таблица разделителей (2)">
                 <!-- Привязка к коллекции разделителей -->
-                <DataGrid ItemsSource="{Binding Delimiters}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid ItemsSource="{Binding Delimiters}" 
+                          AutoGenerateColumns="False" 
+                          IsReadOnly="True" 
+                          CanUserAddRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Visible">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
                         <DataGridTextColumn Header="Разделитель" Binding="{Binding Value}" Width="*"/>
@@ -39,7 +47,11 @@
             </TabItem>
             <TabItem Header="Таблица чисел (3)">
                 <!-- Привязка к коллекции чисел -->
-                <DataGrid ItemsSource="{Binding Numbers}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid ItemsSource="{Binding Numbers}" 
+                          AutoGenerateColumns="False" 
+                          IsReadOnly="True" 
+                          CanUserAddRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Visible">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
                         <DataGridTextColumn Header="Число" Binding="{Binding Value}" Width="*"/>
@@ -48,7 +60,11 @@
             </TabItem>
             <TabItem Header="Таблица идентификаторов (4)">
                 <!-- Привязка к коллекции идентификаторов -->
-                <DataGrid ItemsSource="{Binding Identifiers}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid ItemsSource="{Binding Identifiers}" 
+                          AutoGenerateColumns="False" 
+                          IsReadOnly="True" 
+                          CanUserAddRows="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Visible">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="Auto"/>
                         <DataGridTextColumn Header="Идентификатор" Binding="{Binding Value}" Width="*"/>
@@ -69,7 +85,7 @@
                 <TextBox Text="{Binding SourceCodeText, UpdateSourceTrigger=PropertyChanged}"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
-                         VerticalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Visible"
                          FontFamily="Consolas"
                          FontSize="14"/>
             </GroupBox>
@@ -79,7 +95,7 @@
                 <TextBox Text="{Binding AnalysisResultText}"
                          TextWrapping="Wrap"
                          IsReadOnly="True"
-                         VerticalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Visible"
                          FontFamily="Consolas"
                          FontSize="14"/>
             </GroupBox>

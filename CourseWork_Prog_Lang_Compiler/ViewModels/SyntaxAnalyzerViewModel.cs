@@ -31,6 +31,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
         }
 
         public ObservableCollection<SyntaxError> SyntaxErrors { get; }
+        public ObservableCollection<SemanticError> SemanticErrors { get; }
         public ICommand AnalyzeSyntaxCommand { get; }
 
         private readonly SyntaxAnalyzer _syntaxAnalyzer;
@@ -41,6 +42,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
         public SyntaxAnalyzerViewModel()
         {
             SyntaxErrors = new ObservableCollection<SyntaxError>();
+            SemanticErrors = new ObservableCollection<SemanticError>();
             _syntaxAnalyzer = new SyntaxAnalyzer();
             AnalyzeSyntaxCommand = new RelayCommand(AnalyzeSyntax, CanAnalyzeSyntax);
         }
@@ -71,6 +73,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
         private void AnalyzeSyntax(object parameter)
         {
             SyntaxErrors.Clear();
+            SemanticErrors.Clear();
             SyntaxAnalysisResultText = "";
             SyntaxStatusText = "Анализ...";
 
@@ -81,13 +84,25 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
 
                 if (result.IsSuccess)
                 {
-                    SyntaxAnalysisResultText = "Синтаксически верно.";
+                    SyntaxAnalysisResultText = "Синтаксически и семантически корректно.";
                     SyntaxStatusText = "Готов";
                 }
                 else
                 {
-                    SyntaxAnalysisResultText = "Синтаксическая ошибка.";
-                    SyntaxStatusText = "Ошибка";
+                    if (result.SemanticErrors.Any())
+                    {
+                        SyntaxAnalysisResultText = "Обнаружены семантические ошибки.";
+                        SyntaxStatusText = "Ошибка";
+                        foreach (var error in result.SemanticErrors)
+                        {
+                            SemanticErrors.Add(error);
+                        }
+                    }
+                    else
+                    {
+                        SyntaxAnalysisResultText = "Обнаружены синтаксические ошибки.";
+                        SyntaxStatusText = "Ошибка";
+                    }
 
                     foreach (var error in result.Errors)
                     {
