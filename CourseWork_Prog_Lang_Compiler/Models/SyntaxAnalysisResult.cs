@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace CourseWork_Prog_Lang_Compiler.Models
+﻿namespace CourseWork_Prog_Lang_Compiler.Models
 {
     /// <summary>
     /// Представляет комплексный результат работы синтаксического анализатора.
@@ -25,5 +23,9 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         /// Заполняется в случае наличия ошибок.
         /// </summary>
         public List<SemanticError> SemanticErrors { get; set; } = new();
+        /// <summary>
+        /// Список строк, представляющий программу в ПОЛИЗе
+        /// </summary>
+        public List<string> PolishNotation { get; set; } = new List<string>();
     }
 }

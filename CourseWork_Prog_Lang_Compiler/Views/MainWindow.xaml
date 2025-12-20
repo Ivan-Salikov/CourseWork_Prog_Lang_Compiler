@@ -20,6 +20,9 @@
         <DataTemplate DataType="{x:Type vm:SyntaxAnalyzerViewModel}">
             <local:SyntaxAnalyzerView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InterpreterViewModel}">
+            <local:InterpreterView />
+        </DataTemplate>
     </Window.Resources>
 
     <DockPanel>
@@ -35,7 +38,7 @@
                 <MenuItem Header="Выполнить полный анализ" Command="{Binding RunFullAnalysisCommand}" InputGestureText="F5"/>
                 <Separator />
                 <MenuItem Header="Произвести лексический анализ" Command="{Binding LexicalAnalyzer.AnalyzeCommand}" />
-                <MenuItem Header="Произвести синтаксический анализ" Command="{Binding SyntaxAnalyzer.AnalyzeSyntaxCommand}" />
+                <MenuItem Header="Произвести синтаксический и семантический анализ" Command="{Binding SyntaxAnalyzer.AnalyzeSyntaxCommand}" />
             </MenuItem>
         </Menu>
 
@@ -48,11 +51,14 @@
 
         <!-- Основная область с вкладками -->
         <TabControl Margin="5">
-            <TabItem Header="Лексический анализатор">
+            <TabItem Header="Лексика">
                 <ContentPresenter Content="{Binding LexicalAnalyzer}" />
             </TabItem>
-            <TabItem Header="Синтаксический анализатор">
+            <TabItem Header="Синтаксис / Семантика">
                 <ContentPresenter Content="{Binding SyntaxAnalyzer}" />
+            </TabItem>
+            <TabItem Header="Интерпретатор / ПОЛИЗ">
+                <ContentPresenter Content="{Binding Interpreter}" />
             </TabItem>
         </TabControl>
     </DockPanel>

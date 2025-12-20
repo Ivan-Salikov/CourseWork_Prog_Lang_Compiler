@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace CourseWork_Prog_Lang_Compiler.Models
+﻿namespace CourseWork_Prog_Lang_Compiler.Models
 {
     /// <summary>
     /// Результат семантического анализа.

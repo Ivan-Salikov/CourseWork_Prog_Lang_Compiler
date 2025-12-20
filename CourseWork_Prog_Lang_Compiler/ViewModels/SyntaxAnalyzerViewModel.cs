@@ -1,8 +1,5 @@
 ﻿using CourseWork_Prog_Lang_Compiler.Models;
-using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Linq;
 using System.Windows.Input;
 
 namespace CourseWork_Prog_Lang_Compiler.ViewModels
@@ -38,6 +35,9 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
 
         private List<TableEntry> _identifiersFromLexical = new List<TableEntry>();
         private List<TableEntry> _numbersFromLexical = new List<TableEntry>();
+
+        // Событие успешного завершения анализа для передачи данных в Интерпретатор
+        public event EventHandler<SyntaxAnalysisResult> AnalysisCompleted;
 
         public SyntaxAnalyzerViewModel()
         {
@@ -86,6 +86,9 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
                 {
                     SyntaxAnalysisResultText = "Синтаксически и семантически корректно.";
                     SyntaxStatusText = "Готов";
+
+                    // Уведомляем MainViewModel о успехе
+                    AnalysisCompleted?.Invoke(this, result);
                 }
                 else
                 {

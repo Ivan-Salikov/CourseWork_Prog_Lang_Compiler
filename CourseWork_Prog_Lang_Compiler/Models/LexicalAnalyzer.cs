@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Globalization;
-using System.Linq;
+﻿using System.Globalization;
 using System.Text;
 
 namespace CourseWork_Prog_Lang_Compiler.Models
@@ -195,8 +191,8 @@ namespace CourseWork_Prog_Lang_Compiler.Models
         private void HandleStateCE3() { if (CH == '.') { _customErrorMessage = "Обнаружен конец программы 'end.' внутри незакрытого комментария.";  CS = State.ER; } else if (CH == '}') { CS = State.H; } else { CS = State.C; } }
 
         // Обработка операторов сравнения.
-        private void HandleStateL1() { if (CH == '=') { add(); @out(2, 11); CS = State.H; } else { ungetc(); @out(2, 8); CS = State.H; } }
-        private void HandleStateL2() { if (CH == '=') { add(); @out(2, 10); CS = State.H; } else { ungetc(); @out(2, 9); CS = State.H; } }
+        private void HandleStateL1() { if (CH == '=') { add(); @out(2, 10); CS = State.H; } else { ungetc(); @out(2, 8); CS = State.H; } }
+        private void HandleStateL2() { if (CH == '=') { add(); @out(2, 11); CS = State.H; } else { ungetc(); @out(2, 9); CS = State.H; } }
         private void HandleStateL3() { if (CH == '=') { add(); @out(2, 6); CS = State.H; } else { ungetc(); @out(2, 5); CS = State.H; } }
 
         // --- БЛОК ОБРАБОТКИ ЧИСЕЛ ---

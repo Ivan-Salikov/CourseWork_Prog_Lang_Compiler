@@ -1,8 +1,5 @@
 ﻿using CourseWork_Prog_Lang_Compiler.Models;
 using Microsoft.Win32;
-using System;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -13,13 +10,14 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
     /// <summary>
     /// Главная ViewModel для всего приложения.
     /// Управляет состоянием UI, командами файлов и полного анализа.
-    /// Содержит дочерние ViewModel для лексического и синтаксического анализаторов.
+    /// Содержит дочерние ViewModel для лексического, синтаксического анализаторов и интерпретатора.
     /// </summary>
     public class MainViewModel : ViewModelBase
     {
         // Дочерние ViewModel
         public LexicalAnalyzerViewModel LexicalAnalyzer { get; }
         public SyntaxAnalyzerViewModel SyntaxAnalyzer { get; }
+        public InterpreterViewModel Interpreter { get; }
 
         // Команды
         public ICommand OpenFileCommand { get; }
@@ -30,14 +28,18 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
         private string _statusText = "Готов";
         private string _filePath = "";
 
+        // Поле для хранения таблицы идентификаторов (нужна для инициализации памяти интерпретатора)
+        private List<TableEntry> _lastIdentifiersTable;
+
         public MainViewModel()
         {
             LexicalAnalyzer = new LexicalAnalyzerViewModel();
             SyntaxAnalyzer = new SyntaxAnalyzerViewModel();
+            Interpreter = new InterpreterViewModel();
 
-            // Подписываемся на событие успешного лексического анализа
-            // для передачи токенов и таблиц в синтаксический анализатор
+            // Подписываемся на события
             LexicalAnalyzer.AnalysisCompleted += OnLexicalAnalysisCompleted;
+            SyntaxAnalyzer.AnalysisCompleted += OnSyntaxAnalysisCompleted;
 
             OpenFileCommand = new RelayCommand(OpenFile, CanOpenFile);
             SaveFileCommand = new RelayCommand(SaveFile, CanSaveFile);
@@ -55,8 +57,26 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
         // Обработчик события из LexicalAnalyzer
         private void OnLexicalAnalysisCompleted(object sender, (List<Token> tokens, List<TableEntry> identifiers, List<TableEntry> numbers) data)
         {
+            // Сохраняем таблицу идентификаторов для будущего использования в интерпретаторе
+            _lastIdentifiersTable = data.identifiers;
+
             // Передаем токены и таблицы в SyntaxAnalyzerViewModel
             SyntaxAnalyzer.SetInputTokensAndTables(data.tokens, data.identifiers, data.numbers);
+        }
+
+        // Обработчик события успешного синтаксического анализа
+        private void OnSyntaxAnalysisCompleted(object sender, SyntaxAnalysisResult result)
+        {
+            if (result.IsSuccess)
+            {
+                // Передаем сгенерированный ПОЛИЗ и таблицу идентификаторов в интерпретатор
+                Interpreter.LoadPoliz(result.PolishNotation, _lastIdentifiersTable);
+            }
+            else
+            {
+                // Если анализ не удался, очищаем интерпретатор
+                Interpreter.LoadPoliz(null, null);
+            }
         }
 
         // Команда: Открыть файл
@@ -117,7 +137,7 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
             }
         }
 
-        // Команда: Полный анализ (лексический -> синтаксический)
+        // Команда: Полный анализ (лексический -> синтаксический -> интерпретатор)
         private bool CanRunFullAnalysis(object parameter) => !string.IsNullOrWhiteSpace(LexicalAnalyzer?.SourceCodeText);
         private void RunFullAnalysis(object parameter)
         {
@@ -127,32 +147,41 @@ namespace CourseWork_Prog_Lang_Compiler.ViewModels
             LexicalAnalyzer.AnalysisResultText = "";
             LexicalAnalyzer.Numbers.Clear();
             LexicalAnalyzer.Identifiers.Clear();
+
             SyntaxAnalyzer.SyntaxAnalysisResultText = "";
             SyntaxAnalyzer.SyntaxErrors.Clear();
+            SyntaxAnalyzer.SemanticErrors.Clear();
             SyntaxAnalyzer.SyntaxStatusText = "Готов";
 
-            // Запускаем лексический анализ через команду
+            // Очищаем интерпретатор
+            Interpreter.LoadPoliz(null, null);
+
+            // Запускаем лексический анализ
             if (LexicalAnalyzer.AnalyzeCommand.CanExecute(null))
             {
                 LexicalAnalyzer.AnalyzeCommand.Execute(null);
             }
             else
             {
-                StatusText = "Невозможно запустить лексический анализ (проверьте исходный код).";
-                return; // Прерываем выполнение полного анализа
+                StatusText = "Невозможно запустить лексический анализ.";
+                return;
             }
 
-            // Лексический анализ завершён (или не удался), событие AnalysisCompleted
-            // (если анализ был успешен) вызвало передачу токенов и таблиц в SyntaxAnalyzer.
-            // Теперь запускаем синтаксический анализ через его команду.
+            // Проверка успеха лексического анализа происходит внутри LexicalAnalyzerViewModel.
+            // Если успех -> срабатывает событие AnalysisCompleted -> данные передаются в SyntaxAnalyzer.
+
+            // Запускаем синтаксический анализ
+            // (К этому моменту токены уже должны быть переданы через событие)
             if (SyntaxAnalyzer.AnalyzeSyntaxCommand.CanExecute(null))
             {
                 SyntaxAnalyzer.AnalyzeSyntaxCommand.Execute(null);
             }
             else
             {
-                StatusText = "Невозможно запустить синтаксический анализ (проверьте токены).";
+                StatusText = "Невозможно запустить синтаксический анализ.";
             }
+
+            // Если синтаксический анализ успешен -> сработает событие OnSyntaxAnalysisCompleted -> данные попадут в Interpreter
 
             StatusText = "Полный анализ завершён.";
         }

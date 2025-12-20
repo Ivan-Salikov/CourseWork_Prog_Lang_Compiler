@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace CourseWork_Prog_Lang_Compiler.Models
+﻿namespace CourseWork_Prog_Lang_Compiler.Models
 {
     /// <summary>
     /// Представляет комплексный результат работы лексического анализатора.
