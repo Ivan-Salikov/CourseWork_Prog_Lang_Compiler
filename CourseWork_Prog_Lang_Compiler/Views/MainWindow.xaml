@@ -12,6 +12,12 @@
         <vm:MainViewModel/>
     </Window.DataContext>
 
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFileCommand}" />
+        <KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveFileCommand}" />
+        <KeyBinding Key="F5" Command="{Binding RunFullAnalysisCommand}" />
+    </Window.InputBindings>
+
     <Window.Resources>
         <!-- DataTemplate для отображения ViewModel в ContentControl внутри TabItem -->
         <DataTemplate DataType="{x:Type vm:LexicalAnalyzerViewModel}">
